@@ -29,7 +29,7 @@ namespace text_editor_windows_forms_misha
         // Возвращает false, если пользователь нажал «Отмена» (действие нужно прервать).
         private bool ConfirmSave()
         {
-            if (!textBox.Modified)
+            if (!richTextBox.Modified)
                 return true;
             DialogResult answer = MessageBox.Show("Сохранить изменения?", "Текстовый редактор",
                 MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
@@ -52,11 +52,29 @@ namespace text_editor_windows_forms_misha
             return WriteFile(saveFileDialog1.FileName);
         }
 
+        // .rtf хранит текст вместе с форматированием, остальные файлы — простой текст
+        private static bool IsRtf(string path)
+        {
+            return Path.GetExtension(path).ToLower() == ".rtf";
+        }
+
+        // Убирает форматирование, оставшееся от прошлого документа: шрифт по умолчанию, выравнивание влево
+        private void ResetFormat()
+        {
+            richTextBox.SelectAll();
+            richTextBox.SelectionFont = richTextBox.Font;
+            richTextBox.SelectionAlignment = HorizontalAlignment.Left;
+            richTextBox.Select(0, 0);
+        }
+
         private bool WriteFile(string path)
         {
             try
             {
-                File.WriteAllText(path, textBox.Text);
+                if (IsRtf(path))
+                    richTextBox.SaveFile(path, RichTextBoxStreamType.RichText);
+                else // RichTextBox хранит конец строки как "\n", а в текстовых файлах Windows принят "\r\n"
+                    File.WriteAllText(path, richTextBox.Text.Replace("\n", "\r\n"));
             }
             catch (Exception ex)
             {
@@ -64,7 +82,7 @@ namespace text_editor_windows_forms_misha
                 return false;
             }
             fileName = path;
-            textBox.Modified = false;
+            richTextBox.Modified = false;
             UpdateTitle();
             return true;
         }
@@ -73,8 +91,10 @@ namespace text_editor_windows_forms_misha
         {
             if (!ConfirmSave())
                 return;
-            textBox.Clear();
-            textBox.Modified = false;
+            richTextBox.Clear();
+            ResetFormat();
+            richTextBox.ClearUndo();
+            richTextBox.Modified = false;
             fileName = null;
             UpdateTitle();
         }
@@ -93,14 +113,21 @@ namespace text_editor_windows_forms_misha
                 return;
             try
             {
-                textBox.Text = File.ReadAllText(openFileDialog1.FileName);
+                if (IsRtf(openFileDialog1.FileName))
+                    richTextBox.LoadFile(openFileDialog1.FileName, RichTextBoxStreamType.RichText);
+                else
+                {
+                    richTextBox.Text = File.ReadAllText(openFileDialog1.FileName);
+                    ResetFormat();
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Ошибка открытия", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-            textBox.Modified = false;
+            richTextBox.ClearUndo();
+            richTextBox.Modified = false;
             fileName = openFileDialog1.FileName;
             UpdateTitle();
         }
@@ -131,8 +158,8 @@ namespace text_editor_windows_forms_misha
         // Перед открытием меню делаем недоступными команды, которые сейчас нечего выполнять
         private void editMenu_DropDownOpening(object sender, EventArgs e)
         {
-            bool hasSelection = textBox.SelectionLength > 0;
-            undoItem.Enabled = textBox.CanUndo;
+            bool hasSelection = richTextBox.SelectionLength > 0;
+            undoItem.Enabled = richTextBox.CanUndo;
             cutItem.Enabled = hasSelection;
             copyItem.Enabled = hasSelection;
             deleteItem.Enabled = hasSelection;
@@ -141,27 +168,27 @@ namespace text_editor_windows_forms_misha
 
         private void undoItem_Click(object sender, EventArgs e)
         {
-            textBox.Undo();
+            richTextBox.Undo();
         }
 
         private void cutItem_Click(object sender, EventArgs e)
         {
-            textBox.Cut();
+            richTextBox.Cut();
         }
 
         private void copyItem_Click(object sender, EventArgs e)
         {
-            textBox.Copy();
+            richTextBox.Copy();
         }
 
         private void pasteItem_Click(object sender, EventArgs e)
         {
-            textBox.Paste();
+            richTextBox.Paste();
         }
 
         private void deleteItem_Click(object sender, EventArgs e)
         {
-            textBox.Paste(""); // заменить выделение пустой строкой (с возможностью отмены)
+            richTextBox.SelectedText = ""; // заменить выделение пустой строкой (у RichTextBox это можно отменить)
         }
 
         private void findItem_Click(object sender, EventArgs e)
@@ -202,12 +229,12 @@ namespace text_editor_windows_forms_misha
         public bool FindText(string what, bool down)
         {
             lastSearch = what;
-            string text = textBox.Text;
+            string text = richTextBox.Text;
             int index;
             if (down)
-                index = text.IndexOf(what, textBox.SelectionStart + textBox.SelectionLength, StringComparison.Ordinal);
+                index = text.IndexOf(what, richTextBox.SelectionStart + richTextBox.SelectionLength, StringComparison.Ordinal);
             else
-                index = text.Substring(0, textBox.SelectionStart).LastIndexOf(what, StringComparison.Ordinal);
+                index = text.Substring(0, richTextBox.SelectionStart).LastIndexOf(what, StringComparison.Ordinal);
 
             if (index < 0)
             {
@@ -215,39 +242,45 @@ namespace text_editor_windows_forms_misha
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return false;
             }
-            textBox.Select(index, what.Length);
-            textBox.ScrollToCaret();
+            richTextBox.Select(index, what.Length);
+            richTextBox.ScrollToCaret();
             return true;
         }
 
         // Заменяет текущее выделение (если это искомая строка) и ищет следующее вхождение.
         public void ReplaceText(string what, string with, bool down)
         {
-            if (textBox.SelectedText == what)
-                textBox.Paste(with);
+            if (richTextBox.SelectedText == what)
+                richTextBox.SelectedText = with;
             FindText(what, down);
         }
 
         public void ReplaceAll(string what, string with)
         {
             lastSearch = what;
-            if (!textBox.Text.Contains(what))
+            if (!richTextBox.Text.Contains(what))
             {
                 MessageBox.Show("Не удается найти \"" + what + "\"", "Текстовый редактор",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            string newText = textBox.Text.Replace(what, with);
-            textBox.SelectAll();
-            textBox.Paste(newText); // через Paste, чтобы замену можно было отменить Ctrl+Z
+            // Заменяем каждое вхождение по отдельности через выделение,
+            // чтобы у остального текста сохранились шрифты и выравнивание
+            int index = richTextBox.Text.IndexOf(what, StringComparison.Ordinal);
+            while (index >= 0)
+            {
+                richTextBox.Select(index, what.Length);
+                richTextBox.SelectedText = with;
+                index = richTextBox.Text.IndexOf(what, index + with.Length, StringComparison.Ordinal);
+            }
         }
 
         private void goToItem_Click(object sender, EventArgs e)
         {
-            string text = textBox.Text;
-            // Строки разделяются символом '\n' (Enter в TextBox вставляет "\r\n")
+            string text = richTextBox.Text;
+            // Строки разделяются символом '\n' (в RichTextBox конец строки — один символ '\n')
             int lineCount = text.Split('\n').Length;
-            int currentLine = text.Substring(0, textBox.SelectionStart).Split('\n').Length;
+            int currentLine = text.Substring(0, richTextBox.SelectionStart).Split('\n').Length;
 
             using (GoToForm dialog = new GoToForm(currentLine, lineCount))
             {
@@ -256,8 +289,8 @@ namespace text_editor_windows_forms_misha
                 int index = 0; // начало нужной строки = позиция после (N-1)-го '\n'
                 for (int i = 1; i < dialog.LineNumber; i++)
                     index = text.IndexOf('\n', index) + 1;
-                textBox.Select(index, 0);
-                textBox.ScrollToCaret();
+                richTextBox.Select(index, 0);
+                richTextBox.ScrollToCaret();
             }
         }
 
@@ -265,39 +298,42 @@ namespace text_editor_windows_forms_misha
 
         private void wordWrapItem_Click(object sender, EventArgs e)
         {
-            textBox.WordWrap = wordWrapItem.Checked;
+            richTextBox.WordWrap = wordWrapItem.Checked;
             // При переносе горизонтальная прокрутка не нужна
-            textBox.ScrollBars = textBox.WordWrap ? ScrollBars.Vertical : ScrollBars.Both;
+            richTextBox.ScrollBars = richTextBox.WordWrap ? RichTextBoxScrollBars.Vertical : RichTextBoxScrollBars.Both;
         }
 
         private void fontItem_Click(object sender, EventArgs e)
         {
-            fontDialog1.Font = textBox.Font;
+            // SelectionFont == null, если в выделении несколько разных шрифтов
+            fontDialog1.Font = richTextBox.SelectionFont ?? richTextBox.Font;
             if (fontDialog1.ShowDialog() == DialogResult.OK)
-                textBox.Font = fontDialog1.Font;
+                richTextBox.SelectionFont = fontDialog1.Font; // шрифт только выделенного фрагмента
         }
 
-        private void SetAlignment(HorizontalAlignment alignment)
+        // Галочка стоит у выравнивания абзаца, в котором находится курсор
+        private void alignMenu_DropDownOpening(object sender, EventArgs e)
         {
-            textBox.TextAlign = alignment;
+            HorizontalAlignment alignment = richTextBox.SelectionAlignment;
             alignLeftItem.Checked = alignment == HorizontalAlignment.Left;
             alignCenterItem.Checked = alignment == HorizontalAlignment.Center;
             alignRightItem.Checked = alignment == HorizontalAlignment.Right;
         }
 
+        // Выравнивание задаётся абзацам, которые попали в выделение (или абзацу с курсором)
         private void alignLeftItem_Click(object sender, EventArgs e)
         {
-            SetAlignment(HorizontalAlignment.Left);
+            richTextBox.SelectionAlignment = HorizontalAlignment.Left;
         }
 
         private void alignCenterItem_Click(object sender, EventArgs e)
         {
-            SetAlignment(HorizontalAlignment.Center);
+            richTextBox.SelectionAlignment = HorizontalAlignment.Center;
         }
 
         private void alignRightItem_Click(object sender, EventArgs e)
         {
-            SetAlignment(HorizontalAlignment.Right);
+            richTextBox.SelectionAlignment = HorizontalAlignment.Right;
         }
 
         // ===================== Справка =====================

@@ -59,7 +59,7 @@ namespace text_editor_windows_forms_misha
             this.alignRightItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.aboutItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.textBox = new System.Windows.Forms.TextBox();
+            this.richTextBox = new System.Windows.Forms.RichTextBox();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.fontDialog1 = new System.Windows.Forms.FontDialog();
@@ -291,6 +291,7 @@ namespace text_editor_windows_forms_misha
             this.alignMenu.Name = "alignMenu";
             this.alignMenu.Size = new System.Drawing.Size(180, 22);
             this.alignMenu.Text = "Выравнивание";
+            this.alignMenu.DropDownOpening += new System.EventHandler(this.alignMenu_DropDownOpening);
             //
             // alignLeftItem
             //
@@ -330,28 +331,26 @@ namespace text_editor_windows_forms_misha
             this.aboutItem.Text = "О программе";
             this.aboutItem.Click += new System.EventHandler(this.aboutItem_Click);
             //
-            // textBox
+            // richTextBox
             //
-            this.textBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.textBox.Font = new System.Drawing.Font("Consolas", 11F);
-            this.textBox.HideSelection = false;
-            this.textBox.Location = new System.Drawing.Point(0, 24);
-            this.textBox.MaxLength = 0;
-            this.textBox.Multiline = true;
-            this.textBox.Name = "textBox";
-            this.textBox.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.textBox.Size = new System.Drawing.Size(800, 426);
-            this.textBox.TabIndex = 1;
-            this.textBox.WordWrap = false;
+            this.richTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.richTextBox.Font = new System.Drawing.Font("Consolas", 11F);
+            this.richTextBox.HideSelection = false;
+            this.richTextBox.Location = new System.Drawing.Point(0, 24);
+            this.richTextBox.Name = "richTextBox";
+            this.richTextBox.Size = new System.Drawing.Size(800, 426);
+            this.richTextBox.TabIndex = 1;
+            this.richTextBox.Text = "";
+            this.richTextBox.WordWrap = false;
             //
             // openFileDialog1
             //
-            this.openFileDialog1.Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*";
+            this.openFileDialog1.Filter = "Текстовые файлы (*.txt)|*.txt|Документы RTF (*.rtf)|*.rtf|Все файлы (*.*)|*.*";
             //
             // saveFileDialog1
             //
             this.saveFileDialog1.DefaultExt = "txt";
-            this.saveFileDialog1.Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*";
+            this.saveFileDialog1.Filter = "Текстовые файлы (*.txt)|*.txt|Документы RTF (*.rtf)|*.rtf|Все файлы (*.*)|*.*";
             //
             // fontDialog1
             //
@@ -362,7 +361,7 @@ namespace text_editor_windows_forms_misha
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.textBox);
+            this.Controls.Add(this.richTextBox);
             this.Controls.Add(this.menuStrip1);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "Form1";
@@ -408,7 +407,7 @@ namespace text_editor_windows_forms_misha
         private System.Windows.Forms.ToolStripMenuItem alignRightItem;
         private System.Windows.Forms.ToolStripMenuItem helpMenu;
         private System.Windows.Forms.ToolStripMenuItem aboutItem;
-        private System.Windows.Forms.TextBox textBox;
+        private System.Windows.Forms.RichTextBox richTextBox;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.FontDialog fontDialog1;
